@@ -11,6 +11,7 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/gopcua/opcua/debug"
 	"github.com/gopcua/opcua/errors"
@@ -80,6 +81,15 @@ func (d *Dialer) Dial(ctx context.Context, endpoint string) (*Conn, error) {
 	c, err := dl.DialContext(ctx, "tcp", raddr.String())
 	if err != nil {
 		return nil, err
+	}
+
+	// See: https://madflojo.medium.com/keeping-tcp-connections-alive-in-golang-801a78b7cf1
+	tc := c.(*net.TCPConn)
+	if err := tc.SetKeepAlive(true); err != nil {
+		debug.Printf("set keepalive failed: %s", endpoint)
+	}
+	if err := tc.SetKeepAlivePeriod(30 * time.Second); err != nil {
+		debug.Printf("set keepalive period failed: %s", endpoint)
 	}
 
 	conn, err := NewConn(c.(*net.TCPConn), d.ClientACK)
